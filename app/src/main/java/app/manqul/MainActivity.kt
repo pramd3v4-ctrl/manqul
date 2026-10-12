@@ -15,6 +15,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -242,7 +244,7 @@ fun AyahCard(st: Store, i: Int, onPick: (Sel) -> Unit) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
         Column(Modifier.padding(14.dp)) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     var j = 0
                     while (j < ws.size) {
                         val n = st.notes[key(s, i, j)]
@@ -262,7 +264,7 @@ fun AyahCard(st: Store, i: Int, onPick: (Sel) -> Unit) {
                         }
                         j += l
                     }
-                    Text("۝" + arabicNum(i + 1), fontSize = (22 * st.fontScale).sp, color = MaterialTheme.colorScheme.primary)
+                    Text("۝" + arabicNum(i + 1), fontSize = (34 * st.fontScale).sp, color = MaterialTheme.colorScheme.primary)
                 }
             }
             val parts = mutableListOf<String>()
@@ -437,13 +439,51 @@ fun SettingsDialog(st: Store, onClose: () -> Unit) {
 
 @Composable
 fun Pager(st: Store, pg: Int, pages: Int, total: Int) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TextButton(onClick = { st.page = pg - 1 }, enabled = pg > 0) { Text("← Sebelumnya") }
-        Text("Ayat ${pg * st.perPage + 1}–${minOf(total, (pg + 1) * st.perPage)} dari $total", fontSize = 13.sp)
-        TextButton(onClick = { st.page = pg + 1 }, enabled = pg < pages - 1) { Text("Berikutnya →") }
+    var open by remember { mutableStateOf(false) }
+    val per = st.perPage
+    val end = minOf(total, (pg + 1) * per)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalButton(onClick = { st.page = pg + 1 }, enabled = pg < pages - 1) { Text("←", fontSize = 22.sp) }
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable { open = true }
+            ) {
+                Text("Ayat ${pg * per + 1}–$end ▾", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp))
+            }
+            FilledTonalButton(onClick = { st.page = pg - 1 }, enabled = pg > 0) { Text("→", fontSize = 22.sp) }
+        }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            LinearProgressIndicator(progress = { end.toFloat() / total }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+        }
+    }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = {
+                Column {
+                    Text("Pilih rentang ayat")
+                    Text("${NAMES[st.surah - 1]} · $total ayat · $pages halaman", fontSize = 12.sp)
+                }
+            },
+            text = {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(92.dp),
+                    modifier = Modifier.height(320.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(pages) { p ->
+                        FilterChip(
+                            selected = p == pg,
+                            onClick = { st.page = p; open = false },
+                            label = { Text("${p * per + 1}–${minOf(total, (p + 1) * per)}", fontSize = 13.sp) }
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false }) { Text("Tutup") } }
+        )
     }
 }
